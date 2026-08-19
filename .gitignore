@@ -1,0 +1,21 @@
+# Datasets (Do not push heavy image folders to GitHub)
+TrashType_Image_Dataset/
+
+# Deep Learning Models (Do not push large model files)
+*.h5
+*.tflite
+
+# Python Cache & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# OS generated files
+.DS_Store
+Thumbs.db

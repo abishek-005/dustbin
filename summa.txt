@@ -1,0 +1,19 @@
+kaggle kernels pull farzadnekouei/imbalanced-garbage-classification-resnet50
+
+
+
+API Token is now available
+Please copy your API token now. You won't be able to view it again. You can always generate a new one if needed.
+KGAT_5e35f5b01be76b56a51d90269831607e
+API TOKEN
+
+To use this token, set the KAGGLE_API_TOKEN environment variable:
+
+export KAGGLE_API_TOKEN=KGAT_5e35f5b01be76b56a51d90269831607e
+Or save it to ~/.kaggle/access_token, where the client will read it automatically:
+
+mkdir -p ~/.kaggle && echo KGAT_5e35f5b01be76b56a51d90269831607e > ~/.kaggle/access_token && chmod 600 ~/.kaggle/access_token
+Then you can use the client as follows:
+
+kaggle competitions list
+
