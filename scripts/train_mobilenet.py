@@ -1,53 +1,64 @@
 import os
 import tensorflow as tf
 from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, RandomFlip, RandomRotation, RandomZoom
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, RandomFlip, RandomRotation, RandomZoom, RandomTranslation, RandomContrast
 from tensorflow.keras.models import Sequential, Model
-import matplotlib.pyplot as plt
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+import numpy as np
+from sklearn.utils.class_weight import compute_class_weight
 
-def build_model(num_classes, img_shape=(224, 224, 3)):
-    # Data Augmentation pipeline
+def get_class_weights(dataset_dir, class_names):
+    """Calculate class weights based on the number of images in each folder."""
+    y = []
+    for i, class_name in enumerate(class_names):
+        class_dir = os.path.join(dataset_dir, class_name)
+        if os.path.exists(class_dir):
+            num_images = len([f for f in os.listdir(class_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.jfif'))])
+            y.extend([i] * num_images)
+    
+    if len(y) == 0:
+        return None
+        
+    class_weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
+    return dict(enumerate(class_weights))
+
+def build_base_model(num_classes, img_shape=(224, 224, 3)):
+    # Advanced Data Augmentation pipeline
     data_augmentation = Sequential([
         RandomFlip("horizontal_and_vertical"),
-        RandomRotation(0.2),
+        RandomRotation(0.3),
         RandomZoom(0.2),
+        RandomTranslation(height_factor=0.2, width_factor=0.2),
+        RandomContrast(0.2)
     ], name="data_augmentation")
 
-    # Load MobileNetV2 pretrained on ImageNet, without the top classification layer
+    # Load MobileNetV2 pretrained on ImageNet
     base_model = MobileNetV2(input_shape=img_shape, include_top=False, weights='imagenet')
-    base_model.trainable = False  # Freeze the base model
+    base_model.trainable = False  # Freeze the base model for Phase 1
 
     # Create the complete model
     inputs = tf.keras.Input(shape=img_shape)
-    # Apply data augmentation
     x = data_augmentation(inputs)
-    # MobileNetV2 requires inputs to be in [-1, 1], but image_dataset_from_directory gives [0, 255]
-    # We use the built-in preprocess_input
     x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
     x = base_model(x, training=False)
     x = GlobalAveragePooling2D()(x)
-    x = Dropout(0.2)(x)
+    x = Dropout(0.5)(x)  # Increased dropout to prevent overfitting
     outputs = Dense(num_classes, activation='softmax')(x)
 
     model = Model(inputs, outputs)
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
-    return model
+    
+    return model, base_model
 
 def main():
-    # Make the path robust regardless of where the script is run from
     script_dir = os.path.dirname(os.path.abspath(__file__))
     dataset_dir = os.path.join(script_dir, "..", "dataset_balanced")
     batch_size = 32
     img_size = (224, 224)
 
     print("Loading dataset...")
-    # Load dataset. Keras automatically handles the empty folder as a class if it exists.
-    # Note: image_dataset_from_directory might skip empty folders, so we might only get 4 classes.
-    # Let's ensure we get exactly the classes we created.
-    # If the empty folder is skipped, we can just train on 4 classes for now.
-    
     train_dataset = tf.keras.utils.image_dataset_from_directory(
         dataset_dir,
         validation_split=0.2,
@@ -70,32 +81,64 @@ def main():
     print(f"Detected classes: {class_names}")
     num_classes = len(class_names)
 
+    # Calculate Class Weights
+    print("Calculating Class Weights to handle dataset imbalance...")
+    class_weights = get_class_weights(dataset_dir, class_names)
+    print(f"Class Weights: {class_weights}")
+
     # Prefetch for performance
     AUTOTUNE = tf.data.AUTOTUNE
     train_dataset = train_dataset.prefetch(buffer_size=AUTOTUNE)
     val_dataset = val_dataset.prefetch(buffer_size=AUTOTUNE)
 
-    print("Building model...")
-    model = build_model(num_classes, img_shape=img_size + (3,))
-    model.summary()
+    print("\n--- PHASE 1: Training the Classification Head ---")
+    model, base_model = build_base_model(num_classes, img_shape=img_size + (3,))
+    
+    # Callbacks
+    early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-6)
 
-    epochs = 10
-    print(f"Training model for {epochs} epochs...")
-    history = model.fit(
+    epochs_phase1 = 15
+    model.fit(
         train_dataset,
         validation_data=val_dataset,
-        epochs=epochs
+        epochs=epochs_phase1,
+        class_weight=class_weights,
+        callbacks=[early_stopping, reduce_lr]
     )
 
-    # Save Keras Model
-    model_save_path = "smart_dustbin_mobilenetv2.h5"
+    print("\n--- PHASE 2: Fine-Tuning the Base Model ---")
+    # Unfreeze the base model
+    base_model.trainable = True
+    
+    # Freeze all layers except the top 50
+    for layer in base_model.layers[:-50]:
+        layer.trainable = False
+
+    # Recompile with a VERY LOW learning rate
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
+                  loss='sparse_categorical_crossentropy',
+                  metrics=['accuracy'])
+    
+    model.summary()
+
+    epochs_phase2 = 15
+    model.fit(
+        train_dataset,
+        validation_data=val_dataset,
+        epochs=epochs_phase2,
+        class_weight=class_weights,
+        callbacks=[early_stopping, reduce_lr]
+    )
+
+    # Save Native Keras Model
+    model_save_path = "smart_dustbin_mobilenetv2.keras"
     model.save(model_save_path)
-    print(f"Model saved to {model_save_path}")
+    print(f"\nModel saved to {model_save_path}")
 
     # Convert to TFLite
     print("Converting model to TFLite format...")
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    # Optimize for latency
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
     tflite_model = converter.convert()
 
