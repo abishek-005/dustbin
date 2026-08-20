@@ -1,0 +1,4 @@
+metal
+paper_and_cardboard
+plastic
+reject_other

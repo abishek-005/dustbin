@@ -2,7 +2,7 @@ import os
 import shutil
 import random
 
-def prepare_dataset(source_dir, dest_dir, samples_per_category=200):
+def prepare_dataset(source_dir, dest_dir):
     if not os.path.exists(source_dir):
         print(f"Error: Source directory '{source_dir}' does not exist.")
         return
@@ -39,18 +39,14 @@ def prepare_dataset(source_dir, dest_dir, samples_per_category=200):
         for folder in source_folders:
             folder_path = os.path.join(source_dir, folder)
             if os.path.exists(folder_path):
-                images = [f for f in os.listdir(folder_path) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+                images = [f for f in os.listdir(folder_path) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.jfif'))]
                 for img in images:
                     all_images.append((folder_path, img))
             else:
                 print(f"Warning: Source folder '{folder}' not found in '{source_dir}'.")
 
-        # Sample 200 images
-        if len(all_images) < samples_per_category:
-            print(f"Warning: Not enough images for '{target_cat}'. Found {len(all_images)}, needed {samples_per_category}. Copying all.")
-            sampled_images = all_images
-        else:
-            sampled_images = random.sample(all_images, samples_per_category)
+        # Use all images
+        sampled_images = all_images
 
         # Copy images
         print(f"Copying {len(sampled_images)} images to '{target_cat}'...")
