@@ -36,7 +36,9 @@ def build_model(num_classes, img_shape=(224, 224, 3)):
     return model
 
 def main():
-    dataset_dir = "../dataset_balanced"
+    # Make the path robust regardless of where the script is run from
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    dataset_dir = os.path.join(script_dir, "..", "dataset_balanced")
     batch_size = 32
     img_size = (224, 224)
 
