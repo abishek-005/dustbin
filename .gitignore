@@ -4,6 +4,7 @@ original/
 standardized_256/
 standardized_384/
 dataset_final/
+*.zip
 
 
 # Deep Learning Models (Do not push large model files)
