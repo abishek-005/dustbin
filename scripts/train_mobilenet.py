@@ -54,7 +54,7 @@ def build_base_model(num_classes, img_shape=(224, 224, 3)):
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    dataset_dir = os.path.join(script_dir, "..", "dataset_balanced")
+    dataset_dir = os.path.join(script_dir, "..", "dataset_final")
     batch_size = 32
     img_size = (224, 224)
 
