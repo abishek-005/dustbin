@@ -1,5 +1,10 @@
 # Datasets (Do not push heavy image folders to GitHub)
 TrashType_Image_Dataset/
+original/
+standardized_256/
+standardized_384/
+dataset_final/
+
 
 # Deep Learning Models (Do not push large model files)
 *.h5
