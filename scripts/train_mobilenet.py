@@ -95,7 +95,7 @@ def main():
         seed=42,
         image_size=img_size,
         batch_size=batch_size,
-        label_mode='int'
+        label_mode='categorical'
     )
 
     class_names = train_dataset.class_names
