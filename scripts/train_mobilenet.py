@@ -85,7 +85,7 @@ def main():
         seed=42,
         image_size=img_size,
         batch_size=batch_size,
-        label_mode='int'
+        label_mode='categorical'
     )
 
     val_dataset = tf.keras.utils.image_dataset_from_directory(
@@ -125,7 +125,7 @@ def main():
     # Instead of the model learning "100% paper, 0% everything else",
     # it learns "95% paper, 1.25% each other class". This makes it
     # much better at generalizing to new images it has never seen.
-    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(label_smoothing=0.1)
+    loss_fn = tf.keras.losses.CategoricalCrossentropy(label_smoothing=0.1)
 
     # Callbacks
     early_stopping = EarlyStopping(
